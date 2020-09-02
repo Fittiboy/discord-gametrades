@@ -1,6 +1,7 @@
 import discord
+from discord.ext import commands
 import json
-
+from difflib import SequenceMatcher
 
 with open('secrets.json') as secrets_file:
     token = json.load(secrets_file)
@@ -8,18 +9,54 @@ with open('secrets.json') as secrets_file:
 with open('settings.json') as settings_file:
     settings = json.load(settings_file)
 
-client = discord.Client()
+bot = commands.Bot(command_prefix='!')
 
 
-@client.event
+async def alike(a, b):
+    return SequenceMatcher(None, a, b).ratio()
+
+
+async def findalike(query, lst):
+    games = []
+    for game in lst:
+        score = await alike(query, game)
+        games.append((score, game))
+    return games
+
+
+@bot.event
 async def on_ready():
-    guild = discord.utils.get(client.guilds, id=settings['server_id'])
-    print(f'{client.user} has connected to Discord!')
+    guild = discord.utils.get(bot.guilds, id=settings['server_id'])
+    channel = discord.utils.get(guild.channels, id=settings['channel_id'])
+    print(f'{bot.user.name} has connected to Discord!')
     print(f'connected to {guild}')
+    print(f'connected to {channel}')
 
 
-@client.event
-async def on_message(message):
-    print(message.channel.id)
+@bot.event
+async def on_error(event, *args, **kwargs):
+    with open('err.log', 'a') as f:
+        if event == 'on_message':
+            f.write(f'Unhandled message: {args[0]}\n')
+        else:
+            raise
 
-client.run(token)
+
+# @bot.event
+# async def on_message(message):
+#     member = message.author
+#     if member == bot.user:
+#         return
+#     await member.create_dm()
+#     await member.dm_channel.send("HI")
+
+
+@bot.command(name='addgame', help='Place a game up for trades')
+async def addgame(ctx):
+    game = ctx.message.content[9:]
+    member = ctx.message.author
+    await member.create_dm()
+    await member.dm_channel.send(f'Really add {game}?')
+    pass
+
+bot.run(token)
