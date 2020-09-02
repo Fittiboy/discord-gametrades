@@ -1,7 +1,31 @@
 import discord
 from discord.ext import commands
 import json
+import sqlite3
+from sqlite3 import Error
 from difflib import SequenceMatcher
+
+
+connection = sqlite3.connect('games.sqlite')
+
+
+async def execute_query(connection, query):
+    cursor = connection.cursor()
+    try:
+        cursor.execute(query)
+        connection.commit()
+    except Error as e:
+        print(e)
+
+
+create_games_table = """
+CREATE TABLE IF NOT EXISTS games (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  uids TEXT
+);
+"""
+
 
 with open('secrets.json') as secrets_file:
     token = json.load(secrets_file)
@@ -31,6 +55,7 @@ async def on_ready():
     print(f'{bot.user.name} has connected to Discord!')
     print(f'connected to {guild}')
     print(f'connected to {channel}')
+    await execute_query(connection, create_games_table)
 
 
 @bot.event
