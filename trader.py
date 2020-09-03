@@ -7,6 +7,9 @@ from difflib import SequenceMatcher
 
 
 connection = sqlite3.connect('games.sqlite')
+one, two, three, no = ["1️⃣", "2️⃣", "3️⃣", "🚫"]
+reactions = [one, two, three, no]
+message_cache = {}
 
 
 async def execute_query(connection, query):
@@ -18,12 +21,42 @@ async def execute_query(connection, query):
         print(e)
 
 
+async def execute_read_query(connection, query):
+    cursor = connection.cursor()
+    result = None
+    try:
+        cursor.execute(query)
+        result = cursor.fetchall()
+        return result
+    except Error as e:
+        print(e)
+
+
+async def get_games(connection):
+    games_query = "SELECT * from games"
+    games = await execute_read_query(connection, games_query)
+    return games
+
+
+async def add_game(connection, game, uids):
+    query = insert_game_into_table.format(
+                title=game, uids=uids)
+    await execute_query(connection, query)
+
+
 create_games_table = """
 CREATE TABLE IF NOT EXISTS games (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
   uids TEXT
 );
+"""
+
+insert_game_into_table = """
+INSERT INTO
+  games (name, uids)
+VALUES
+  ('{title}', '{uids}');
 """
 
 
@@ -69,11 +102,28 @@ async def on_error(event, *args, **kwargs):
 
 # @bot.event
 # async def on_message(message):
-#     member = message.author
-#     if member == bot.user:
-#         return
-#     await member.create_dm()
-#     await member.dm_channel.send("HI")
+#     print("Message received")
+#     bot_id = settings.get('bot_id')
+#     sender = message.author.id
+#     print("IDs checked")
+#     if sender == bot_id:
+#         print(message)
+
+
+@bot.event
+async def on_reaction_add(reaction, user):
+    if user.id == settings.get('bot_id'):
+        return
+    elif not message_cache.get(reaction.message.id):
+        return
+    if reaction == one:
+        pass
+    elif reaction == two:
+        pass
+    elif reaction == three:
+        pass
+    elif reaction == no:
+        pass
 
 
 @bot.command(name='addgame', help='Place a game up for trades')
@@ -81,7 +131,24 @@ async def addgame(ctx):
     game = ctx.message.content[9:]
     member = ctx.message.author
     await member.create_dm()
-    await member.dm_channel.send(f'Really add {game}?')
-    pass
+    games = await get_games(connection)
+    games_stripped = [existing[1] for existing in games]
+    hits = await findalike(game, games_stripped)
+    hits.sort()
+    if hits:
+        message_list = [f"{str(i+1)}.\t{hit[1]}" for i,
+                        hit in enumerate(hits[:-4:-1])]
+        response = await member.dm_channel.send(
+              "Is your game one of the following?\n" + "\n".join(message_list))
+        message_cache[response.id] = True
+        await response.add_reaction(one)
+        await response.add_reaction(two)
+        await response.add_reaction(three)
+        await response.add_reaction(no)
+
+    # response = await member.dm_channel.send(f'Really add {game}?')
+    # await response.add_reaction('👍')
+    # await response.add_reaction('👎')
+    # await add_game(connection, game, member.id)
 
 bot.run(token)
