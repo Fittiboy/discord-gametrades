@@ -4,6 +4,7 @@ import json
 import sqlite3
 from sqlite3 import Error
 from difflib import SequenceMatcher
+import time
 
 
 connection = sqlite3.connect('games.sqlite')
@@ -136,11 +137,19 @@ async def addgame(ctx):
     hits = await findalike(game, games_stripped)
     hits.sort()
     if hits:
+        hitlist = [hit[1] for hit in hits[:-4:-1]]
         message_list = [f"{str(i+1)}.\t{hit[1]}" for i,
-                        hit in enumerate(hits[:-4:-1])]
+                        hit in enumerate(hitlist)]
         response = await member.dm_channel.send(
               "Is your game one of the following?\n" + "\n".join(message_list))
-        message_cache[response.id] = True
+        now = time.time()
+        delete_these = []
+        for key, value in message_cache.items():
+            if now - value[-1] > 30:
+                delete_these.append[key]
+        for key in delete_these:
+            del message_cache[key]
+        message_cache[response.id] = [*hitlist, now]
         await response.add_reaction(one)
         await response.add_reaction(two)
         await response.add_reaction(three)
